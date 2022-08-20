@@ -1,29 +1,30 @@
 const router = require('express').Router();
 const { Category, Product } = require('../../models');
 
-// The `/api/categories` endpoint
 
 router.get('/', async (req, res) => {
   try {
-    const categoriesDB = await Category.findAll({
-      include: [{model: Product}],
+    const categories = await Category.findAll({
+      include: Product,
     });
-    res.status(200).json(categoriesDB);
+    res.status(200).json(categories)
   } catch (err) {
-    res.status(500).json(err)
+    res.status(500).json(err);
   }
 });
 
 router.get('/:id', async (req, res) => {
   try {
-    const categoriesDB = await Category.findByPk(req.params.id, {
-      include: [{model: Product}],
+    const { id } = req.params;
+    const category = await Category.findByPk(id, {
+      include: Product
     });
-    if(!categoriesDB) {
-      res.status(404).json({message: "Couldn't find category."});
-      return;
-    }
-    res.status(200).json(categoriesDB);
+    return category 
+    ? res.status(200).json(category)
+    : res.status(500).json({
+        success: false,
+        data: "the provided 'id' doesn't exist" 
+    })
   } catch (err) {
     res.status(500).json(err);
   }
@@ -31,50 +32,88 @@ router.get('/:id', async (req, res) => {
 
 router.post('/', async (req, res) => {
   try {
-    const categoriesDB = await Category.create(req.body);
-    res.status(200).json({
-      message: `New category with the name: ${categoriesDB.category_name} was created.`
+    const { category_name } = req.body;
+    if (!category_name) {
+      return res.status(500).json({
+        success: false,
+        data: "please provide a 'category_name' field" 
+      })
+    }
+    const category = await Category.create({
+      category_name: category_name
+    })
+    res.status(201).json({
+      success: true,
+      message: `category '${category_name}' has been added to the database!`,
+      data: category.get({
+        plain: true
+      })
     });
   } catch (err) {
-    res.status(400).json(err);
+    res.status(500).json(err);
   }
 });
 
 router.put('/:id', async (req, res) => {
-  await Category.update(
-    {
-      category_name: req.body.category_name,
-    },
-    {
-      where: {
-        id: req.params.id,
-      },
+  try {
+    const { id } = req.params;
+    const { category_name } = req.body;
+    const category = await Category.findByPk(id);
+    if (!category) {
+      return res.status(500).json({
+        success: false,
+        data: "the provided 'id' doesn't exist" 
+      })
     }
-  )
-  .then((newCategory) => {
-    res.json(newCategory);
-  })
-  .catch((err) => {
-    res.json(err);
-  })
+    if (!category_name) {
+      return res.status(500).json({
+        success: false,
+        data: "please provide a 'category_name' field" 
+      })
+    }
+    await Category.update(
+      {
+        category_name: category_name
+      },
+      {
+        where: {
+          id: id
+        }
+      }
+    );
+    res.status(200).json({
+      success: true,
+      data: `category id '${id}' has been updated and saved to the database! Its new category name is ${category_name}`,
+    })
+  } catch (err) {
+    res.status(500).json(err);
+  }
 });
 
 router.delete('/:id', async (req, res) => {
   try {
-    const categoriesDB = await Category.destroy({
-      where: {
-        id: req.params.id,
-      },
-    });
-    if (!categoriesDB) {
-      res.status(404).json({
-        message: 'No category found.'
-      });
-      return;
+    const { id } = req.params;
+    const category = await Category.findByPk(id);
+    if (!category) {
+      return res.status(500).json({
+        success: false,
+        data: "the provided 'id' doesn't exist" 
+      })
     }
-    res.status(200).json(categoriesDB);
+    await Category.destroy({
+      where: {
+        id: id
+      }
+    })
+    res.status(200).json({
+      success: true,
+      message: `category id '${id}' has been deleted from the database!`,
+      data: category.get({
+        plain: true
+      })
+    })
   } catch (err) {
-    res.status(500).json(err);
+    res.status(500).json(err)
   }
 });
 
